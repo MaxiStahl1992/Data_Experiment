@@ -1,0 +1,37 @@
+# CC-NEWS configuration
+source:
+  name: 'CC-NEWS'
+  hf_dataset: 'stanford-oval/ccnews'
+  language: 'en'
+  access_method: 'download' # Download to disk
+
+processing:
+  date_field: 'date'
+  canonical_url_field: 'canonical_url'
+
+filters:
+  language: 'en'
+  min_article_length: 100 # characters
+  exclude_patterns: # Optional: filter noise
+    - '404'
+    - 'page not found'
+
+deduplication:
+  method: 'canonical_url_exact'
+  keep_first: true # within each day
+
+sampling:
+  method: 'deterministic_hash'
+  daily_limit_n: 10000 # 10k articles per day (~600k for Sep-Oct 2016)
+  hash_function: 'xxhash64'
+  hash_input_format: '{seed}||{canonical_url}||{date}'
+  keep_strategy: 'top_n_smallest_hash'
+
+output:
+  silver_filename: 'ccnews_{period}.parquet'
+  partitioning: 'daily' # Daily Parquet files
+  compression: 'snappy'
+  store_full_text: false # Only derived features (embeddings, etc.) later
+
+privacy:
+  no_redistribution: true # Reminder: do not share raw articles

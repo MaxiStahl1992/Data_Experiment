@@ -1,0 +1,21 @@
+# Global configuration for Sep-Oct 2016 validation run
+validation_run:
+  period_start: "2016-09-01"
+  period_end: "2016-10-31"
+  seed_string: "thesis_sep_oct_2016_v1"
+  git_commit: null  # Auto-populated by notebooks
+  python_version: "3.13.2"
+
+paths:
+  data_root: "data"
+  raw: "data/00_raw"
+  silver: "data/01_silver"
+  gold: "data/03_gold"
+  qa: "data/04_qa"
+  reports: "reports/data_validation"
+  logs: "logs"
+  artefacts: "artefacts/run_metadata"
+
+determinism:
+  rerun_count: 2  # Number of times to rerun sampling for determinism checks
+  hash_algorithm: "xxhash64"  # Fast hash for comparison
