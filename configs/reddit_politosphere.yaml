@@ -1,26 +1,26 @@
 # Reddit Politosphere configuration
 source:
-  name: "Politosphere"
-  language: "en"
-  zenodo_doi: "10.5281/zenodo.5851729"
-  github_repo: "valentinhofmann/politosphere"
+  name: 'Politosphere'
+  language: 'en'
+  zenodo_doi: '10.5281/zenodo.5851729'
+  github_repo: 'valentinhofmann/politosphere'
 
 processing:
-  time_index_field: "created_utc"  # Comment timestamp only
-  thread_context_usage: "inference_only"  # Never for indexing
-  
+  time_index_field: 'created_utc' # Comment timestamp only
+  thread_context_usage: 'inference_only' # Never for indexing
+
 filters:
-  language: "en"
-  min_comment_length: 10  # characters
+  language: 'en'
+  min_comment_length: 10 # characters
   remove_deleted: true
   remove_bot_comments: true
 
 deduplication:
-  method: "exact_match"
-  key_fields: ["author", "body", "created_utc"]
+  method: 'exact_match'
+  key_fields: ['author', 'body', 'created_utc']
 
 output:
-  silver_filename: "politosphere_{period}.parquet"
-  gold_filename: "pseudodocs_{period}.parquet"
-  partitioning: "daily"  # Daily Parquet files
-  compression: "snappy"
+  silver_filename: 'politosphere_{period}.parquet'
+  gold_filename: 'pseudodocs_{period}.parquet'
+  partitioning: 'daily' # Daily Parquet files
+  compression: 'snappy'
