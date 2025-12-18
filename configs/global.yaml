@@ -4,7 +4,7 @@ validation_run:
   period_end: '2016-10-31'
   seed_string: 'thesis_sep_oct_2016_v1'
   git_commit: null # Auto-populated by notebooks
-  python_version: '3.13.2'
+  python_version: '3.13.5'
 
 paths:
   data_root: 'data'
