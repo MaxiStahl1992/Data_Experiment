@@ -1,0 +1,101 @@
+{
+  "temporal_coverage": {
+    "start_date": "2016-09-01",
+    "end_date": "2016-10-31",
+    "expected_days": 61,
+    "actual_days": 61,
+    "coverage_pct": 100.0,
+    "missing_dates": []
+  },
+  "dataset_size": {
+    "total_articles": 93669,
+    "articles_per_day": {
+      "mean": 1535.6,
+      "median": 150,
+      "min": 50,
+      "max": 7481,
+      "std": 2593.0
+    }
+  },
+  "text_statistics": {
+    "article_text_length": {
+      "mean": 2698.9,
+      "median": 2343,
+      "min": 300,
+      "max": 9997
+    },
+    "title_length": {
+      "mean": 57.8,
+      "median": 57,
+      "min": 3,
+      "max": 264
+    }
+  },
+  "sources": {
+    "unique_domains": 1957,
+    "top_10_domains": {
+      "thehindu.com": 3735,
+      "theguardian.com": 2825,
+      "modernghana.com": 2269,
+      "irishtimes.com": 2263,
+      "seattletimes.com": 2067,
+      "dailyrecord.co.uk": 2005,
+      "firmenpresse.de": 1710,
+      "theglobeandmail.com": 1610,
+      "metronews.ca": 1566,
+      "finanznachrichten.de": 1269
+    }
+  },
+  "language": {
+    "distribution": {
+      "en": 93669
+    },
+    "english_pct": 100.0
+  },
+  "data_quality": {
+    "completeness": {
+      "missing_count": {
+        "date": 0,
+        "requested_url": 0,
+        "plain_text": 0,
+        "published_date": 0,
+        "title": 0,
+        "tags": 0,
+        "categories": 0,
+        "author": 17422,
+        "sitename": 42,
+        "image_url": 13034,
+        "language": 0,
+        "language_score": 0,
+        "responded_url": 0,
+        "publisher": 0,
+        "warc_path": 0,
+        "crawl_date": 0,
+        "text_length": 0,
+        "title_length": 0,
+        "domain": 0
+      },
+      "missing_pct": {
+        "date": 0.0,
+        "requested_url": 0.0,
+        "plain_text": 0.0,
+        "published_date": 0.0,
+        "title": 0.0,
+        "tags": 0.0,
+        "categories": 0.0,
+        "author": 18.6,
+        "sitename": 0.04,
+        "image_url": 13.91,
+        "language": 0.0,
+        "language_score": 0.0,
+        "responded_url": 0.0,
+        "publisher": 0.0,
+        "warc_path": 0.0,
+        "crawl_date": 0.0,
+        "text_length": 0.0,
+        "title_length": 0.0,
+        "domain": 0.0
+      }
+    }
+  }
+}

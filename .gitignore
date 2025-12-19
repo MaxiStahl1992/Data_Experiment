@@ -2,3 +2,4 @@ data/
 *.bz2
 *.csv
 *.parquet
+venv/
