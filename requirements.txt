@@ -36,8 +36,12 @@ jsonschema==4.23.0
 scikit-learn==1.6.0
 gensim==4.4.0
 scipy==1.14.1
+langdetect==1.0.9
 
 # Stance detection (transformer models)
 transformers==4.57.2
 torch==2.9.0
 sentencepiece==0.2.0
+
+# compression
+zstandard==0.25.0
