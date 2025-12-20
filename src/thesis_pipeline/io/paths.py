@@ -29,7 +29,7 @@ def get_project_root() -> Path:
 
 
 def get_data_path(
-    layer: Literal['raw', 'silver', 'gold', 'qa', 'topics', 'stance', 'polarisation'] = 'gold',
+    layer: Literal['raw', 'silver', 'gold', 'qa', 'topics', 'stance', 'polarisation', '02_reddit'] = 'gold',
     platform: Optional[Literal['reddit', 'news']] = None,
     create: bool = False
 ) -> Path:
