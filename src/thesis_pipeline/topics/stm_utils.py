@@ -251,18 +251,22 @@ def fit_topic_model(
     
     # Fit topic model
     if method == 'nmf':
+        # Extract max_iter from kwargs if present, otherwise use default
+        max_iter = model_kwargs.pop('max_iter', 500)
         model = NMF(
             n_components=n_topics,
             random_state=random_state,
             init='nndsvda',  # Better initialization
-            max_iter=500,
+            max_iter=max_iter,
             **model_kwargs
         )
     else:  # LDA
+        # Extract max_iter from kwargs if present, otherwise use default
+        max_iter = model_kwargs.pop('max_iter', 50)
         model = LatentDirichletAllocation(
             n_components=n_topics,
             random_state=random_state,
-            max_iter=50,
+            max_iter=max_iter,
             learning_method='batch',
             n_jobs=n_jobs,
             verbose=verbose,
@@ -405,6 +409,158 @@ def transform_new_documents(
         theta_new = theta_new / row_sums
     
     return theta_new
+
+
+def select_optimal_k(
+    documents: List[str],
+    k_range: range = range(10, 31, 5),
+    n_runs: int = 3,
+    method: Literal['nmf', 'lda'] = 'nmf',
+    coherence_type: str = 'c_v',
+    max_features: int = 5000,
+    min_df: int = 5,
+    max_df: float = 0.7,
+    random_state: int = 42,
+    verbose: bool = True,
+    **model_kwargs
+) -> Dict:
+    """
+    Select optimal number of topics using coherence scores.
+    
+    Fits models with different K values, computes coherence for each,
+    and returns results for analysis. Implements stability check via
+    multiple runs per K value.
+    
+    Parameters
+    ----------
+    documents : list of str
+        Input documents
+    k_range : range or list of int
+        K values to test
+    n_runs : int
+        Number of runs per K (for stability)
+    method : {'nmf', 'lda'}
+        Topic modeling method
+    coherence_type : str
+        Coherence measure ('c_v', 'u_mass', 'c_npmi')
+    max_features : int
+        Maximum vocabulary size
+    min_df : int
+        Minimum document frequency
+    max_df : float
+        Maximum document frequency
+    random_state : int
+        Base random seed (incremented per run)
+    verbose : bool
+        Print progress
+    **model_kwargs
+        Additional arguments for fit_topic_model
+        
+    Returns
+    -------
+    dict
+        {
+            'results': list of dicts with k, coherence_mean, coherence_std, coherence_scores
+            'optimal_k': int (K with highest mean coherence)
+            'all_models': list of TopicModelResults for each K (last run only)
+        }
+        
+    Examples
+    --------
+    >>> selection = select_optimal_k(documents, k_range=range(10, 31, 5))
+    >>> print(f"Optimal K: {selection['optimal_k']}")
+    >>> results_df = pd.DataFrame(selection['results'])
+    """
+    from thesis_pipeline.topics.coherence import compute_topic_coherence
+    from gensim.corpora import Dictionary
+    
+    # Tokenize documents once
+    tokenized_docs = [doc.split() for doc in documents]
+    
+    results = []
+    all_models = []
+    
+    if verbose:
+        print(f"Exploring K range: {list(k_range)}")
+        print(f"Runs per K: {n_runs}")
+        print(f"Coherence: {coherence_type}")
+        print()
+    
+    for k in k_range:
+        if verbose:
+            print(f"Testing K = {k}")
+        
+        k_scores = []
+        
+        for run in range(n_runs):
+            # Fit model
+            topic_model = fit_topic_model(
+                documents=documents,
+                n_topics=k,
+                method=method,
+                max_features=max_features,
+                min_df=min_df,
+                max_df=max_df,
+                random_state=random_state + run,
+                verbose=0,
+                **model_kwargs
+            )
+            
+            # Extract topics as list of term lists
+            topics = []
+            for topic_id in range(k):
+                top_terms = topic_model.get_top_terms(topic_id, n_terms=10)
+                topics.append([term for term, _ in top_terms])
+            
+            # Compute coherence using gensim
+            dictionary = Dictionary(tokenized_docs)
+            from gensim.models.coherencemodel import CoherenceModel
+            cm = CoherenceModel(
+                topics=topics,
+                texts=tokenized_docs,
+                dictionary=dictionary,
+                coherence=coherence_type
+            )
+            coherence = cm.get_coherence()
+            
+            k_scores.append(coherence)
+            
+            if verbose:
+                print(f"  Run {run+1}: coherence = {coherence:.4f}")
+            
+            # Save last model for this K
+            if run == n_runs - 1:
+                all_models.append(topic_model)
+        
+        # Store results
+        results.append({
+            'k': k,
+            'coherence_mean': np.mean(k_scores),
+            'coherence_std': np.std(k_scores),
+            'coherence_scores': k_scores
+        })
+        
+        if verbose:
+            print(f"  Summary: {np.mean(k_scores):.4f} ± {np.std(k_scores):.4f}\n")
+    
+    # Find optimal K
+    coherence_means = [r['coherence_mean'] for r in results]
+    optimal_idx = np.argmax(coherence_means)
+    optimal_k = results[optimal_idx]['k']
+    
+    if verbose:
+        print("=" * 60)
+        print("MODEL SELECTION SUMMARY")
+        print("=" * 60)
+        for r in results:
+            print(f"K = {r['k']:2d}: coherence = {r['coherence_mean']:.4f} ± {r['coherence_std']:.4f}")
+        print(f"\nOptimal K (by coherence): {optimal_k}")
+    
+    return {
+        'results': results,
+        'optimal_k': optimal_k,
+        'all_models': all_models
+    }
 
 
 # Example usage

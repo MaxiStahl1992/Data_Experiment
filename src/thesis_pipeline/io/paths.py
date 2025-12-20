@@ -29,7 +29,7 @@ def get_project_root() -> Path:
 
 
 def get_data_path(
-    layer: Literal['raw', 'silver', 'gold', 'qa'] = 'gold',
+    layer: Literal['raw', 'silver', 'gold', 'qa', 'topics'] = 'gold',
     platform: Optional[Literal['reddit', 'news']] = None,
     create: bool = False
 ) -> Path:
@@ -41,11 +41,12 @@ def get_data_path(
     - data/01_corpus/01_silver/{platform}/
     - data/01_corpus/02_gold/{platform}/
     - data/01_corpus/03_qa/{platform}/
+    - data/02_topics/{platform}/
     
     Parameters
     ----------
     layer : str
-        Data layer: 'raw', 'silver', 'gold', 'qa'
+        Data layer: 'raw', 'silver', 'gold', 'qa', 'topics'
     platform : str, optional
         Platform subdirectory: 'reddit', 'news'
         If None, returns layer root
@@ -66,22 +67,33 @@ def get_data_path(
     
     >>> # Get QA layer root
     >>> qa_path = get_data_path('qa', create=True)
+    
+    >>> # Get topics directory
+    >>> topics_path = get_data_path('topics', 'reddit')
+    >>> print(topics_path)
+    /path/to/project/data/02_topics/reddit
     """
     root = get_project_root()
     
-    # Map layer names to directory prefixes
+    # Map layer names to directory paths
+    # Most layers are under data/01_corpus, but topics is separate
     layer_map = {
-        'raw': '00_raw',
-        'silver': '01_silver',
-        'gold': '02_gold',
-        'qa': '03_qa'
+        'raw': ('01_corpus', '00_raw'),
+        'silver': ('01_corpus', '01_silver'),
+        'gold': ('01_corpus', '02_gold'),
+        'qa': ('01_corpus', '03_qa'),
+        'topics': ('02_topics', None)  # topics is not under corpus
     }
     
     if layer not in layer_map:
         raise ValueError(f"Unknown layer: {layer}. Must be one of {list(layer_map.keys())}")
     
     # Build path
-    data_dir = root / 'data' / '01_corpus' / layer_map[layer]
+    parent_dir, layer_dir = layer_map[layer]
+    if layer_dir is not None:
+        data_dir = root / 'data' / parent_dir / layer_dir
+    else:
+        data_dir = root / 'data' / parent_dir
     
     if platform is not None:
         data_dir = data_dir / platform

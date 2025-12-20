@@ -37,6 +37,7 @@ scikit-learn==1.6.0
 gensim==4.4.0
 scipy==1.14.1
 langdetect==1.0.9
+bertopic==0.17.4
 
 # Stance detection (transformer models)
 transformers==4.57.2
