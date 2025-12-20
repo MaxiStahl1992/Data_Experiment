@@ -261,6 +261,7 @@ data/03_gold/
 - _"Why multi-label vs single-label?"_: Single-label forcing produced 81.9% low confidence (<0.3); multi-label reflects reality that political comments span multiple issues
 - _"Why cap at 5 topics?"_: Grounded in cognitive science (Miller's Law), information theory (20/20 = noise), and multi-label best practices (Read et al., 2011)
 - _"Why embeddings vs zero-shot?"_: 65x faster (455 vs 7 docs/sec), same semantic similarity principle, GPU-optimized, no text generation overhead
+- _"Isn't predefined topic assignment subjective?"_: **YES** - inherent subjectivity exists (different experts might assign differently). However: (1) Embedding-based approach is **most objective** given predefined categories (computational similarity, not human judgment), (2) CAP taxonomy validated across 20+ countries reduces arbitrary choices, (3) Subjectivity is **explicit and defensible** (vs. hidden assumptions in unsupervised discovery), (4) Reproducible: same documents always get same topics (deterministic embeddings), (5) Alternative (unsupervised) has different subjectivity: choosing K, interpreting emergent topics, temporal alignment
 
 ---
 

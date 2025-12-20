@@ -1,6 +1,6 @@
 # Core dependencies for thesis data pipeline
 # Pinned versions for reproducibility
-# Python 3.13.5 required
+# Python 3.12.0 required
 
 # Data manipulation
 pandas==2.2.3
@@ -49,3 +49,7 @@ zstandard==0.25.0
 
 # TensorBoard for logging
 tensorboard==2.20.0
+
+# Optional: for interactive annotation in Jupyter notebooks
+ipywidgets==8.1.8
+ipython==9.8.0

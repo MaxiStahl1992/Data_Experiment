@@ -23,6 +23,66 @@ from transformers import (
     pipeline
 )
 import warnings
+from tqdm.auto import tqdm as tqdm_auto
+
+
+def topic_to_claim(topic_label: str) -> str:
+    """
+    Convert a topic category into a stance-able claim.
+    
+    Transforms broad topics (e.g., "Infrastructure") into specific claims
+    (e.g., "Government should invest in infrastructure") that can have
+    clear FAVOUR/AGAINST positions.
+    
+    This solves the annotation problem: you can't take a stance toward
+    "Infrastructure" (a category), but you CAN take a stance toward
+    "Government should invest in infrastructure" (a claim).
+    
+    Parameters
+    ----------
+    topic_label : str
+        CAP topic label (e.g., "Healthcare Policy", "Immigration Policy")
+        
+    Returns
+    -------
+    str
+        Claim that can be agreed/disagreed with
+        
+    Examples
+    --------
+    >>> topic_to_claim("Healthcare Policy")
+    'Healthcare Policy is beneficial'
+    
+    >>> topic_to_claim("Infrastructure")
+    'Government should invest in infrastructure'
+    
+    >>> topic_to_claim("Immigration Reform")
+    'Immigration Reform should be implemented'
+    """
+    topic_lower = topic_label.lower()
+    
+    # Policy topics → "[Policy] is beneficial/necessary"
+    if 'policy' in topic_lower or 'policies' in topic_lower:
+        return f"{topic_label} is beneficial"
+    
+    # Reform topics → "[Reform] should be implemented"
+    if 'reform' in topic_lower:
+        return f"{topic_label} should be implemented"
+    
+    # Investment topics → "Government should invest in [topic]"
+    if any(word in topic_lower for word in ['infrastructure', 'education', 'technology', 'energy']):
+        return f"Government should invest in {topic_label.lower()}"
+    
+    # Rights/Protection topics → "[Topic] should be protected/expanded"
+    if any(word in topic_lower for word in ['rights', 'protection', 'security']):
+        return f"{topic_label} should be protected"
+    
+    # Climate/Environment → "Government should address [topic]"
+    if any(word in topic_lower for word in ['climate', 'environment', 'pollution']):
+        return f"Government should address {topic_label.lower()}"
+    
+    # Default: "[Topic] is important/beneficial"
+    return f"{topic_label} is beneficial"
 
 
 @dataclass
@@ -92,7 +152,6 @@ class StanceModel:
     def __init__(
         self,
         model_name: str = "facebook/bart-large-mnli",  # Zero-shot baseline
-        use_zero_shot: bool = True,
         device: Optional[str] = None
     ):
         """
@@ -109,7 +168,6 @@ class StanceModel:
             'cuda', 'mps', or 'cpu' (auto-detect if None)
         """
         self.model_name = model_name
-        self.use_zero_shot = use_zero_shot
         
         # Device detection
         if device is None:
@@ -119,32 +177,95 @@ class StanceModel:
         
         print(f"Loading stance model: {model_name}")
         print(f"Device: {self.device}")
+    
+        # Fine-tuned stance classifier (3-way classification)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.model.to(self.device)
+        self.model.eval()
         
-        if use_zero_shot:
-            # Zero-shot classification pipeline (BART/RoBERTa MNLI)
-            self.model = pipeline(
-                "zero-shot-classification",
-                model=model_name,
-                device=0 if self.device == 'cuda' else -1
+        # Assume label mapping (update based on fine-tuned model)
+        self.label_map = {0: 'FAVOUR', 1: 'AGAINST', 2: 'NEUTRAL'}
+        
+        print("✓ Model loaded")
+    
+
+class ImprovedNLIStanceModel:
+    """
+    Improved NLI-based stance detection using direct hypothesis testing.
+    
+    Better than zero-shot classification for stance:
+    - Tests direct value judgments: "[topic] is good" vs "[topic] is bad"
+    - Handles both high/low score edge cases
+    - More reliable than BART zero-shot for political discourse
+    
+    Recommended models:
+    - roberta-large-mnli (stable, good performance)
+    - microsoft/deberta-v3-base-mnli-fever-anli-ling-wanli (best, but larger)
+    - cross-encoder/nli-deberta-v3-base (good balance)
+    
+    Special handling:
+    - BART models use zero-shot classification pipeline instead of NLI
+    """
+    
+    def __init__(
+        self,
+        model_name: str = "roberta-large-mnli",
+        device: Optional[str] = None,
+        confidence_threshold: float = 0.04,
+        use_claim_formulation: bool = True
+    ):
+        """
+        Initialize improved NLI stance model.
+        
+        Parameters
+        ----------
+        model_name : str
+            NLI model (roberta-large-mnli, deberta-v3-base-mnli, etc.)
+        device : str, optional
+            'cuda', 'mps', or 'cpu' (auto-detect if None)
+        confidence_threshold : float
+            Minimum entailment score for non-neutral stance (default: 0.04)
+        """
+        self.model_name = model_name
+        self.confidence_threshold = confidence_threshold
+        self.use_claim_formulation = use_claim_formulation
+        
+        # Detect if this is a BART model (needs zero-shot pipeline)
+        self.is_bart = 'bart' in model_name.lower()
+        
+        # Device detection
+        if device is None:
+            self.device = torch.device(
+                'cuda' if torch.cuda.is_available() 
+                else 'mps' if torch.backends.mps.is_available() 
+                else 'cpu'
             )
-            self.tokenizer = None
-            
-            # Stance labels for zero-shot
-            self.stance_labels = ['in favor', 'against', 'neutral']
-            self.label_map = {
-                'in favor': 'FAVOUR',
-                'against': 'AGAINST',
-                'neutral': 'NEUTRAL'
-            }
         else:
-            # Fine-tuned stance classifier (3-way classification)
+            self.device = torch.device(device)
+        
+        print(f"Loading NLI stance model: {model_name}")
+        print(f"Device: {self.device}")
+        print(f"Claim formulation: {use_claim_formulation}")
+        
+        if self.is_bart:
+            # BART uses zero-shot classification pipeline
+            from transformers import pipeline
+            self.pipeline = pipeline(
+                model=model_name,
+                device=0 if self.device.type == 'cuda' else -1
+            )
+            print("Using zero-shot classification pipeline for BART")
+        else:
+            # Standard NLI models
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
             self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
             self.model.to(self.device)
             self.model.eval()
             
-            # Assume label mapping (update based on fine-tuned model)
-            self.label_map = {0: 'FAVOUR', 1: 'AGAINST', 2: 'NEUTRAL'}
+            # NLI label indices: 0=CONTRADICTION, 1=NEUTRAL, 2=ENTAILMENT (standard)
+            self.entailment_idx = 2
+            self.contradiction_idx = 0
         
         print("✓ Model loaded")
     
@@ -155,16 +276,20 @@ class StanceModel:
         return_probs: bool = True
     ) -> Dict[str, float]:
         """
-        Predict stance for a single text-target pair.
+        Predict stance using NLI entailment.
+        
+        Tests two hypotheses:
+        - H1: "[target] is good" → measures FAVOUR
+        - H2: "[target] is bad" → measures AGAINST
         
         Parameters
         ----------
         text : str
-            Input text (comment or article)
+            Input text (comment, article, etc.)
         target : str or TargetRepresentation
-            Target representation (topic terms)
+            Target topic (e.g., "Healthcare Policy")
         return_probs : bool
-            Return probability distribution (required for confidence filtering)
+            Return probability distribution
             
         Returns
         -------
@@ -175,59 +300,144 @@ class StanceModel:
         # Format target
         if isinstance(target, TargetRepresentation):
             target_str = target.target_string
+        elif isinstance(target, dict) and 'label' in target:
+            target_str = target['label']
         else:
-            target_str = target
+            target_str = str(target)
         
-        if self.use_zero_shot:
-            # Zero-shot classification
-            hypothesis = f"This text is {{}}"  # Will be filled with stance labels
-            result = self.model(
-                text,
-                candidate_labels=self.stance_labels,
-                hypothesis_template=f"This text is {{}} the topic: {target_str}"
-            )
-            
-            # Map to standard labels and probabilities
-            probs = {
-                self.label_map[label]: score
-                for label, score in zip(result['labels'], result['scores'])
-            }
-            
-            predicted_label = self.label_map[result['labels'][0]]
-            confidence = result['scores'][0]
-            
+        # Convert topic to claim if enabled
+        if self.use_claim_formulation:
+            target_claim = topic_to_claim(target_str)
         else:
-            # Fine-tuned model inference
-            # Format: [CLS] text [SEP] target [SEP]
-            inputs = self.tokenizer(
-                text,
-                target_str,
+            target_claim = target_str
+        
+        # Truncate text
+        premise = text[:512]
+        
+        # BART uses zero-shot classification
+        if self.is_bart:
+            return self._predict_bart(premise, target_claim)
+        
+        # Standard NLI models: test value judgments about the claim
+        hypothesis_favour = f"{target_claim} is good"
+        hypothesis_against = f"{target_claim} is bad"
+        
+        # Get predictions for both hypotheses
+        with torch.no_grad():
+            # Test FAVOUR hypothesis
+            inputs_favour = self.tokenizer(
+                premise, hypothesis_favour,
                 return_tensors='pt',
                 truncation=True,
                 max_length=512,
                 padding=True
             ).to(self.device)
+            outputs_favour = self.model(**inputs_favour)
+            probs_favour = torch.softmax(outputs_favour.logits, dim=-1)[0]
             
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                logits = outputs.logits
-                probs_tensor = torch.softmax(logits, dim=1)[0]
+            # Test AGAINST hypothesis
+            inputs_against = self.tokenizer(
+                premise, hypothesis_against,
+                return_tensors='pt',
+                truncation=True,
+                max_length=512,
+                padding=True
+            ).to(self.device)
+            outputs_against = self.model(**inputs_against)
+            probs_against = torch.softmax(outputs_against.logits, dim=-1)[0]
             
-            probs = {
-                'FAVOUR': probs_tensor[0].item(),
-                'AGAINST': probs_tensor[1].item(),
-                'NEUTRAL': probs_tensor[2].item()
-            }
+            # Get entailment scores
+            favour_score = probs_favour[self.entailment_idx].item()
+            against_score = probs_against[self.entailment_idx].item()
             
-            predicted_idx = torch.argmax(probs_tensor).item()
-            predicted_label = self.label_map[predicted_idx]
-            confidence = probs_tensor[predicted_idx].item()
+            # Calculate margin
+            margin = abs(favour_score - against_score)
+            max_score = max(favour_score, against_score)
+            min_score = min(favour_score, against_score)
+            
+            # Determine stance with edge case handling
+            # Case 1: Both scores very high (>0.7) with small margin → NEUTRAL
+            # (e.g., "X is important" entails both "X is good" and contextually "X is bad")
+            if min_score > 0.7 and margin < 0.3:
+                stance = 'NEUTRAL'
+                confidence = max_score
+            # Case 2: Both scores very low (<0.2) → NEUTRAL
+            elif max_score < 0.2:
+                stance = 'NEUTRAL'
+                confidence = max_score
+            # Case 3: One clearly higher
+            elif favour_score > against_score:
+                if favour_score > self.confidence_threshold or (favour_score > 0.3 and margin > 0.1):
+                    stance = 'FAVOUR'
+                    confidence = favour_score
+                else:
+                    stance = 'NEUTRAL'
+                    confidence = max_score
+            elif against_score > favour_score:
+                if against_score > self.confidence_threshold or (against_score > 0.3 and margin > 0.1):
+                    stance = 'AGAINST'
+                    confidence = against_score
+                else:
+                    stance = 'NEUTRAL'
+                    confidence = max_score
+            else:
+                # Tied
+                stance = 'NEUTRAL'
+                confidence = max_score
         
         return {
-            'prob_favour': probs.get('FAVOUR', 0.0),
-            'prob_against': probs.get('AGAINST', 0.0),
-            'prob_neutral': probs.get('NEUTRAL', 0.0),
-            'predicted_label': predicted_label,
+            'prob_favour': favour_score,
+            'prob_against': against_score,
+            'prob_neutral': 1.0 - max(favour_score, against_score),
+            'predicted_label': stance,
+            'confidence': confidence
+        }
+    
+    def _predict_bart(
+        self,
+        text: str,
+        target_claim: str
+    ) -> Dict[str, float]:
+        """
+        BART-specific prediction using zero-shot classification.
+        
+        Tests hypothesis: "This text is in favor of [claim]"
+        """
+        # Zero-shot classification with stance labels
+        result = self.pipeline(
+            text,
+            candidate_labels=['in favor', 'against', 'neutral'],
+            hypothesis_template=f"This text is {{}} the claim: {target_claim}"
+        )
+        
+        # Extract scores
+        labels = result['labels']
+        scores = result['scores']
+        
+        # Map to our format
+        label_scores = dict(zip(labels, scores))
+        favour_score = label_scores.get('in favor', 0.0)
+        against_score = label_scores.get('against', 0.0)
+        neutral_score = label_scores.get('neutral', 0.0)
+        
+        # Determine stance (use same logic as NLI)
+        max_score = max(favour_score, against_score, neutral_score)
+        
+        if favour_score == max_score and favour_score > self.confidence_threshold:
+            stance = 'FAVOUR'
+            confidence = favour_score
+        elif against_score == max_score and against_score > self.confidence_threshold:
+            stance = 'AGAINST'
+            confidence = against_score
+        else:
+            stance = 'NEUTRAL'
+            confidence = neutral_score
+        
+        return {
+            'prob_favour': favour_score,
+            'prob_against': against_score,
+            'prob_neutral': neutral_score,
+            'predicted_label': stance,
             'confidence': confidence
         }
     
@@ -235,7 +445,7 @@ class StanceModel:
         self,
         texts: List[str],
         targets: List[Union[str, TargetRepresentation]],
-        batch_size: int = 32,
+        batch_size: int = 16,
         show_progress: bool = True
     ) -> pd.DataFrame:
         """
@@ -248,7 +458,7 @@ class StanceModel:
         targets : list of str or TargetRepresentation
             Targets (one per text or single target for all)
         batch_size : int
-            Batch size for inference
+            Batch size for inference (note: each text requires 2 forward passes)
         show_progress : bool
             Show progress bar
             
@@ -258,10 +468,7 @@ class StanceModel:
             Predictions with columns: prob_favour, prob_against, prob_neutral,
             predicted_label, confidence
         """
-        from tqdm import tqdm
-        
         if len(targets) == 1:
-            # Same target for all texts
             targets = targets * len(texts)
         
         if len(texts) != len(targets):
@@ -271,7 +478,7 @@ class StanceModel:
         
         iterator = range(0, len(texts), batch_size)
         if show_progress:
-            iterator = tqdm(iterator, desc="Stance prediction")
+            iterator = tqdm_auto(iterator, desc="Stance prediction")
         
         for i in iterator:
             batch_texts = texts[i:i+batch_size]

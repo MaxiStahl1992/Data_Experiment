@@ -29,7 +29,7 @@ def get_project_root() -> Path:
 
 
 def get_data_path(
-    layer: Literal['raw', 'silver', 'gold', 'qa', 'topics'] = 'gold',
+    layer: Literal['raw', 'silver', 'gold', 'qa', 'topics', 'stance', 'polarisation'] = 'gold',
     platform: Optional[Literal['reddit', 'news']] = None,
     create: bool = False
 ) -> Path:
@@ -46,7 +46,7 @@ def get_data_path(
     Parameters
     ----------
     layer : str
-        Data layer: 'raw', 'silver', 'gold', 'qa', 'topics'
+        Data layer: 'raw', 'silver', 'gold', 'qa', 'topics', 'stance', 'polarisation'
     platform : str, optional
         Platform subdirectory: 'reddit', 'news'
         If None, returns layer root
@@ -82,7 +82,9 @@ def get_data_path(
         'silver': ('01_corpus', '01_silver'),
         'gold': ('01_corpus', '02_gold'),
         'qa': ('01_corpus', '03_qa'),
-        'topics': ('02_topics', None)  # topics is not under corpus
+        'topics': ('02_topics', None),  # topics is not under corpus
+        'stance': ('03_stance', None),  # stance layer
+        'polarisation': ('04_polarisation', None)  # polarisation layer
     }
     
     if layer not in layer_map:
