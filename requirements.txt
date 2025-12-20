@@ -46,3 +46,6 @@ sentencepiece==0.2.0
 
 # compression
 zstandard==0.25.0
+
+# TensorBoard for logging
+tensorboard==2.20.0
