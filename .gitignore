@@ -3,3 +3,6 @@ data/
 *.csv
 *.parquet
 venv/
+lightning_logs/
+__pycache__/
+*.pyc

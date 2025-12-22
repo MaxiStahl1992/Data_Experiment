@@ -54,3 +54,9 @@ tensorboard==2.20.0
 # Optional: for interactive annotation in Jupyter notebooks
 ipywidgets==8.1.8
 ipython==9.8.0
+
+# forecasting
+statsmodels==0.14.6
+pytorch-forecasting==1.5.0
+pytorch-lightning==2.2.4
+chronos-forecasting==2.2.2
